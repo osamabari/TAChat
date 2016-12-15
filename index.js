@@ -1,83 +1,95 @@
 var express = require('express'),
-    app = express(),
-    http = require('http'),
-    server = http.createServer(app),
-    io = require('socket.io').listen(server),
-    _ = require('underscore'),
-    moment = require('moment'),
-    users = {};
-var request = require('request');
-var waterfall = require('async-waterfall');
-var bodyParser = require('body-parser');
+        app = express(),
+        http = require('http'),
+        server = http.createServer(app),
+        io = require('socket.io').listen(server),
+        _ = require('underscore'),
+        moment = require('moment'),
+        request = require('request'),
+        waterfall = require('async-waterfall'),
+        bodyParser = require('body-parser'),
+        usernames = {},
+        userIds = {},
+        clients = [],
+        users = [],
+        onlineClient = [],
+        clientInfo = {},
+        mysql = require('mysql'),
+        port = 8008,
+//install forEach special module with async lib
+       forEach = require('async-foreach').forEach;
 
-    // parse application/x-www-form-urlencoded 
+//add body barser to accept post requests
 app.use(bodyParser.urlencoded({
     extended: false
-}))
-var mysql = require('mysql');
+}));
+
+//database connection with mysql
+
 var connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
     password: 'tech@123',
-    //password : '123456',
     database: 'og-words'
 });
+
 // parse application/json 
 app.use(bodyParser.json());
-var forEach = require('async-foreach').forEach;
-connection.connect(function(err) {
+
+connection.connect(function (err) {
     if (!err) {
-        //console.log("Database is connected ... nn");
+        //console.log("Database is connected ... ");
     } else {
-        //console.log("error connecting database ... nn");
+        //console.log("error connecting database ... ");
     }
 });
 
-server.listen(8008);
+//start chat server
+server.listen(port);
 
-
-app.get('/', function(req, res) {
-    res.sendFile(__dirname + '/index.html');
+ /***************************************************************************************************************************************************************/
+    /************************************************************************ /test ************************************************************************/
+    /**
+     * @api {socket:event} /test test
+     * @apiDescription test
+     * @apiGroup test
+     * @apiName test
+     * ***************************************************************************************************************************************************************
+     * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+app.get('/', function (req, res) {
+    res.send("Welcome to TA Chat Server");
 });
 
-// usernames which are currently connected to the chat
-var usernames = {};
-var userIds = {};
-var clients = [];
-var users = [];
-var onlineClient = [];
-// rooms which are currently available in chat
-var clientInfo = {};
 
-       /************************************************************************ Start Soket Event ************************************************************************/
+/************************************************************************ Start Soket Event ************************************************************************/
 
-    io.sockets.on('connection', function(socket) {
+io.sockets.on('connection', function (socket) {
 
-        /***************************************************************************************************************************************************************/
-        /************************************************************************ /chkUser ************************************************************************/
-        /**
-         * @api {socket:event} :::chkUser chkUser
-         * @apiDescription for checking users is online or not. it will fire as a first event.
-         * @apiGroup Chat
-         * @apiName chkUser
-         * ***************************************************************************************************************************************************************
+    /***************************************************************************************************************************************************************/
+    /************************************************************************ /chkUser ************************************************************************/
+    /**
+     * @api {socket:event} :::chkUser chkUser
+     * @apiDescription for checking users is online or not. it will fire as a first event.
+     * @apiGroup Chat
+     * @apiName chkUser
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {string}            data.userId                                               object parameter
+     * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
 
-          * @apiParam (Expected parameters) {string}            data.userId                                               object parameter
-         * ***************************************************************************************************************************************************************
-         * @apiVersion 0.0.1
-         */
-
-        socket.on('chkUser', function(data) {
-        //console.log('checkUser');
-        ////console.log(data);
+    socket.on('chkUser', function (data) {
         var chk = users.indexOf(data.userId);
         var curdatetime = currentDateTime('India', '5.5');
-        if (data.userId == "") 
+        if (data.userId == "")
         {
             return false;
         }
 
-        if (users.indexOf(data.userId) == '-1') 
+        if (users.indexOf(data.userId) == '-1')
         {
             users.push(data.userId);
         }
@@ -88,7 +100,7 @@ var clientInfo = {};
             color: 'text-success'
         };
 
-        if (onlineClient[data.name]) 
+        if (onlineClient[data.name])
         {
             var ind3 = onlineClient.indexOf(data.name);
             onlineClient.splice(ind3, 1);
@@ -97,9 +109,9 @@ var clientInfo = {};
 
         /// Unread message of one to one user
 
-        connection.query('SELECT tm.message, tm.chatId, tm.from_id,  tm.to_id, tm.group_id, tm.chatType, tm.message_type, tm.filename, tm.fileurl, tm.filesize, tm.msgUUID, UNIX_TIMESTAMP(tm.timestamp) as timestamp FROM tbl_message as tm left join tbl_child_message as tcm on tcm.chatId=tm.chatId where tm.to_id=' + data.name + ' and tcm.is_read="0" and tcm.is_deleted="0" order by UNIX_TIMESTAMP(tm.timestamp) desc', function(err, rows, fields) {
+        connection.query('SELECT tm.message, tm.chatId, tm.from_id,  tm.to_id, tm.group_id, tm.chatType, tm.message_type, tm.filename, tm.fileurl, tm.filesize, tm.msgUUID, UNIX_TIMESTAMP(tm.timestamp) as timestamp FROM tbl_message as tm left join tbl_child_message as tcm on tcm.chatId=tm.chatId where tm.to_id=' + data.name + ' and tcm.is_read="0" and tcm.is_deleted="0" order by UNIX_TIMESTAMP(tm.timestamp) desc', function (err, rows, fields) {
             if (err) {
-                //console.log(err);
+                console.log(err);
                 throw err;
             } else {
                 for (var i in rows) {
@@ -111,7 +123,7 @@ var clientInfo = {};
 
         /// Unread message of group
 
-        connection.query('SELECT tm.message, tm.chatId, tm.from_id, tm.to_id, tm.group_id, tm.chatType, tm.message_type, tm.filename, tm.fileurl, tm.filesize, tm.msgUUID, UNIX_TIMESTAMP(tm.timestamp) as timestamp FROM `tbl_users_group` as tug inner join tbl_message as tm on tm.group_id=tug.groupId left join tbl_child_message as tcm on  tcm.chatId=tm.chatId where tug.userId=' + data.name + ' and tcm.is_deleted="0" and tcm.is_read="0" and tcm.user_id= ' + data.name + ' order by UNIX_TIMESTAMP(tm.timestamp) desc', function(err, rows, fields) {
+        connection.query('SELECT tm.message, tm.chatId, tm.from_id, tm.to_id, tm.group_id, tm.chatType, tm.message_type, tm.filename, tm.fileurl, tm.filesize, tm.msgUUID, UNIX_TIMESTAMP(tm.timestamp) as timestamp FROM `tbl_users_group` as tug inner join tbl_message as tm on tm.group_id=tug.groupId left join tbl_child_message as tcm on  tcm.chatId=tm.chatId where tug.userId=' + data.name + ' and tcm.is_deleted="0" and tcm.is_read="0" and tcm.user_id= ' + data.name + ' order by UNIX_TIMESTAMP(tm.timestamp) desc', function (err, rows, fields) {
             if (err) {
                 throw err;
             } else {
@@ -124,20 +136,20 @@ var clientInfo = {};
 
         /// Seen message of group and one to one
 
-        connection.query('SELECT tm.message, tm.chatId, tm.from_id,  tm.to_id, tm.group_id, tm.chatType, tm.message_type, tm.filename, tm.fileurl, tm.filesize, tm.msgUUID, UNIX_TIMESTAMP(tm.timestamp) as timestamp FROM tbl_message as tm left join tbl_child_message as tcm on tcm.chatId=tm.chatId where tm.from_id=' + data.name + ' and tcm.user_id=' + data.name + ' and tcm.is_deleted="0" and tcm.status="0" order by UNIX_TIMESTAMP(tm.timestamp) desc', function(err, rows, fields) {
+        connection.query('SELECT tm.message, tm.chatId, tm.from_id,  tm.to_id, tm.group_id, tm.chatType, tm.message_type, tm.filename, tm.fileurl, tm.filesize, tm.msgUUID, UNIX_TIMESTAMP(tm.timestamp) as timestamp FROM tbl_message as tm left join tbl_child_message as tcm on tcm.chatId=tm.chatId where tm.from_id=' + data.name + ' and tcm.user_id=' + data.name + ' and tcm.is_deleted="0" and tcm.status="0" order by UNIX_TIMESTAMP(tm.timestamp) desc', function (err, rows, fields) {
             if (err) {
-                //console.log(err);
+                ////console.log(err);
                 throw err;
             } else {
-                //console.log(rows);
+                ////console.log(rows);
                 for (var i in rows) {
-                    //console.log(data.name + "==" + rows[i].from_id);
+                    ////console.log(data.name + "==" + rows[i].from_id);
                     if (data.name == rows[i].from_id) {
-                        connection.query('SELECT * FROM tbl_message left join tbl_child_message on tbl_child_message.chatId=tbl_message.chatId where tbl_message.chatId=' + rows[i].chatId + ' and tbl_child_message.is_read="0"', function(err, rowss, fields) {
+                        connection.query('SELECT * FROM tbl_message left join tbl_child_message on tbl_child_message.chatId=tbl_message.chatId where tbl_message.chatId=' + rows[i].chatId + ' and tbl_child_message.is_read="0"', function (err, rowss, fields) {
                             if (err) {
                                 throw err;
                             } else {
-                                //console.log(rowss);
+                                ////console.log(rowss);
                                 if (rowss.length == 0) {
                                     var data_send = {};
                                     data_send = {
@@ -146,15 +158,15 @@ var clientInfo = {};
                                         group_id: rows[i].group_id,
                                         chatId: rows[i].chatId
                                     };
-                                    //console.log(data_send);
+                                    ////console.log(data_send);
                                     onlineClient['userid' + data.name].emit('receiveReadMessages', data_send);
-                                    ////console.log(rowss);
-                                    connection.query('UPDATE tbl_child_message SET status = ? WHERE chatId = ? and user_id = ?', ['1', rows[i].chatId, data.name], function(err, result) {
+                                    //////console.log(rowss);
+                                    connection.query('UPDATE tbl_child_message SET status = ? WHERE chatId = ? and user_id = ?', ['1', rows[i].chatId, data.name], function (err, result) {
                                         if (err) {
-                                            //console.log(err);
+                                            ////console.log(err);
                                             throw err;
                                         } else {
-                                            ////console.log(result); 
+                                            //////console.log(result); 
                                         }
                                     });
                                 }
@@ -167,17 +179,28 @@ var clientInfo = {};
         socket.emit("chkUser", chk);
     });
 
-    /*
-    name: Read Messages
-    params: from_id,to_id, chatId, group_id
-    */
-    socket.on('readMessages', function(data) {
-
-        //console.log('params' + data.from_id + '/' + data.to_id + '/' + data.group_id + '/' + data.chatId);
-
+ /***************************************************************************************************************************************************************/
+    /************************************************************************ /readMessages ************************************************************************/
+    /**
+     * @api {socket:event} :::readMessages readMessages
+     * @apiDescription readMessages
+     * @apiGroup Chat
+     * @apiName readMessages
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.from_id                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.to_id                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.chatId                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.group_id                                              Object parameter
+     * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+    // 
+    socket.on('readMessages', function (data) {
         if (data.group_id && data.group_id > 0) {
-            //console.log('Group readMessages');
-            connection.query('UPDATE tbl_child_message SET is_read = ?, readTimestemp=? WHERE chatId = ? and user_id = ?', ['1', moment().format('YYYY-MM-DD H:mm:s'), data.chatId, data.to_id], function(err, result) {
+            ////console.log('Group readMessages');
+            connection.query('UPDATE tbl_child_message SET is_read = ?, readTimestemp=? WHERE chatId = ? and user_id = ?', ['1', moment().format('YYYY-MM-DD H:mm:s'), data.chatId, data.to_id], function (err, result) {
                 if (err) {
                     throw err;
                 } else {
@@ -187,7 +210,7 @@ var clientInfo = {};
                         onlineClient['userid' + data.to_id].emit('receiveReadMessages', data);
                     }
 
-                    connection.query('SELECT * FROM tbl_message left join tbl_child_message on tbl_child_message.chatId=tbl_message.chatId where tbl_message.chatId=' + data.chatId + ' and tbl_child_message.is_read="0"', function(err, rows, fields) {
+                    connection.query('SELECT * FROM tbl_message left join tbl_child_message on tbl_child_message.chatId=tbl_message.chatId where tbl_message.chatId=' + data.chatId + ' and tbl_child_message.is_read="0"', function (err, rows, fields) {
                         if (err) {
                             throw err;
                         } else {
@@ -198,12 +221,12 @@ var clientInfo = {};
                                 //if(onlineClient.indexOf(data.from_id) >0)
                                 if (0 != Object.getOwnPropertyNames(abc).length) {
                                     onlineClient['userid' + data.from_id].emit('receiveReadMessages', data);
-                                    connection.query('UPDATE tbl_child_message SET status = ? WHERE chatId = ? and user_id = ?', ['1', data.chatId, data.from_id], function(err, result) {
+                                    connection.query('UPDATE tbl_child_message SET status = ? WHERE chatId = ? and user_id = ?', ['1', data.chatId, data.from_id], function (err, result) {
                                         if (err) {
-                                            //console.log(err);
+                                            ////console.log(err);
                                             throw err;
                                         } else {
-                                            //console.log(result);
+                                            ////console.log(result);
                                         }
                                     });
                                 }
@@ -214,9 +237,9 @@ var clientInfo = {};
             });
         } else {
 
-            connection.query('UPDATE tbl_child_message SET is_read = ?, readTimestemp=? WHERE chatId = ? and user_id = ?', ['1', moment().format('YYYY-MM-DD H:mm:s'), data.chatId, data.to_id], function(err, result) {
+            connection.query('UPDATE tbl_child_message SET is_read = ?, readTimestemp=? WHERE chatId = ? and user_id = ?', ['1', moment().format('YYYY-MM-DD H:mm:s'), data.chatId, data.to_id], function (err, result) {
                 if (err) {
-                    //console.log(err);
+                    ////console.log(err);
                     throw err;
                 } else {
 
@@ -224,12 +247,12 @@ var clientInfo = {};
                     //if(onlineClient.indexOf(data.from_id) >0)
                     if (0 != Object.getOwnPropertyNames(abc).length) {
                         onlineClient['userid' + data.from_id].emit('receiveReadMessages', data);
-                        connection.query('UPDATE tbl_child_message SET status = ? WHERE chatId = ? and user_id = ?', ['1', data.chatId, data.from_id], function(err, result) {
+                        connection.query('UPDATE tbl_child_message SET status = ? WHERE chatId = ? and user_id = ?', ['1', data.chatId, data.from_id], function (err, result) {
                             if (err) {
-                                //console.log(err);
+                                ////console.log(err);
                                 throw err;
                             } else {
-                                //console.log(result);
+                                ////console.log(result);
                             }
                         });
                     }
@@ -243,32 +266,62 @@ var clientInfo = {};
 
     });
 
-    /*
-    name: connectGroup
-    params: groupId
-    */
+ /***************************************************************************************************************************************************************/
+    /************************************************************************ /connectGroup ************************************************************************/
+    /**
+     * @api {socket:event} :::connectGroup connectGroup
+     * @apiDescription connectGroup
+     * @apiGroup Chat
+     * @apiName groupId
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.groupId                                              Object parameter
+       * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
 
-    socket.on('connectGroup', function(data) {
-        //console.log('connectGroup');
-        //console.log("Userid=" + data.groupId);
+    socket.on('connectGroup', function (data) {
         socket.room = data.groupId;
         socket.join(data.groupId);
         socket.join(socket.room);
 
-        connection.query('SELECT * FROM tbl_message where group_id=' + data.groupId + ' order by timestamp desc limit 0,10', function(err, rows, fields) {
+        connection.query('SELECT * FROM tbl_message where group_id=' + data.groupId + ' order by timestamp desc limit 0,10', function (err, rows, fields) {
             if (err) {
                 throw err;
             } else {
-                //console.log(rows);
-                //socket.emit('loadOldMessages', rows);
+                socket.emit('loadOldMessages', rows);
             }
         });
     });
 
 
-    socket.on('sendGroupMsg', function(data) {
-        //console.log('sendGroupMsg');
-        //  //console.log(data)
+
+ /***************************************************************************************************************************************************************/
+    /************************************************************************ /sendGroupMsg ************************************************************************/
+    /**
+     * @api {socket:event} :::sendGroupMsg sendGroupMsg
+     * @apiDescription sendGroupMsg
+     * @apiGroup Chat
+     * @apiName sendGroupMsg
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.from_id                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.group_id                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.message_type                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.filename                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.fileurl                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.filesize                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.msgUUID                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.chatType                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.group_id                                              Object parameter
+
+       * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+
+    socket.on('sendGroupMsg', function (data) {
         // we tell the client to execute 'updatechat' with 2 parameters
         var newChat = {
             message: data.message,
@@ -282,18 +335,18 @@ var clientInfo = {};
             chatType: data.chatType,
             timestamp: moment().format('YYYY-MM-DD H:mm:s')
         };
-        ////console.log(newChat);
-        var query = connection.query('INSERT INTO tbl_message SET ?', newChat, function(err, result) {
+        //////console.log(newChat);
+        var query = connection.query('INSERT INTO tbl_message SET ?', newChat, function (err, result) {
             if (err) {
-                // //console.log(err);
+                console.log(err);
             } else {
                 data.chatId = result.insertId;
                 data.timestamp = moment(newChat.timestamp).unix();
                 io.sockets.in(data.group_id).emit('recivedGroupMsg', data);
 
-                connection.query('SELECT * FROM tbl_users_group where groupId=' + data.group_id, function(err, rows, fields) {
+                connection.query('SELECT * FROM tbl_users_group where groupId=' + data.group_id, function (err, rows, fields) {
                     if (err) {
-                        ////console.log(err);    
+                        //////console.log(err);    
                     } else {
                         for (var i in rows) {
                             var childChat = {
@@ -303,7 +356,7 @@ var clientInfo = {};
                                 readTimestemp: moment().format('YYYY-MM-DD H:mm:s'),
                                 timestamp: moment().format('YYYY-MM-DD H:mm:s'),
                             };
-                            var child_query = connection.query('INSERT INTO tbl_child_message SET ?', childChat, function(err, result) {
+                            var child_query = connection.query('INSERT INTO tbl_child_message SET ?', childChat, function (err, result) {
                                 if (err) {
                                     throw err;
                                 }
@@ -311,15 +364,39 @@ var clientInfo = {};
                         }
                     }
                 });
-                //console.log(data);
 
             }
         });
     });
 
 
-    socket.on('sendPrivateMsg', function(data) {
-        //console.log('sendPrivateMsg');
+ /***************************************************************************************************************************************************************/
+    /************************************************************************ /sendGroupMsg ************************************************************************/
+    /**
+     * @api {socket:event} :::sendGroupMsg sendGroupMsg
+     * @apiDescription sendGroupMsg
+     * @apiGroup Chat
+     * @apiName sendGroupMsg
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.from_id                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.to_id                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.message_type                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.filename                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.fileurl                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.filesize                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.msgUUID                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.chatType                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.msgUUID                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.chatType                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.message                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.group_id                                              Object parameter
+
+       * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+    socket.on('sendPrivateMsg', function (data) {
         var chatId = '';
         var group_id = data.chatType == 3 ? data.group_id : 0;
         var newChat = {
@@ -335,26 +412,22 @@ var clientInfo = {};
             group_id: group_id,
             timestamp: moment().format('YYYY-MM-DD H:mm:s')
         };
-        //console.log(newChat);
-        var query = connection.query('INSERT INTO tbl_message SET ?', newChat, function(err, result) {
+        ////console.log(newChat);
+        var query = connection.query('INSERT INTO tbl_message SET ?', newChat, function (err, result) {
             if (err) {
-                //console.log(err);
+                console.log(err);
                 throw err;
             } else {
                 data.chatId = result.insertId;
                 data.timestamp = moment(newChat.timestamp).unix();
-                //console.log(data);
-
                 var clientSocket = onlineClient['userid' + data.to_id];
-                ////console.log(clientSocket)
-                if (clientSocket == null) {} else {
+                if (clientSocket == null) {
+                } else {
                     clientSocket.emit('receivePrivateMsg', data);
                 }
 
                 var clientSocket2 = onlineClient['userid' + data.from_id];
-
                 clientSocket2.emit('receivePrivateMsg', data);
-
                 var childChat1 = {
                     chatId: data.chatId,
                     user_id: data.from_id,
@@ -362,8 +435,8 @@ var clientInfo = {};
                     timestamp: moment().format('YYYY-MM-DD H:mm:s'),
                     readTimestemp: moment().format('YYYY-MM-DD H:mm:s'),
                 };
-                //console.log(childChat1);
-                var child_query1 = connection.query('INSERT INTO tbl_child_message SET ?', childChat1, function(err, result) {
+
+                var child_query1 = connection.query('INSERT INTO tbl_child_message SET ?', childChat1, function (err, result) {
                     if (err) {
                         throw err;
                     }
@@ -374,7 +447,7 @@ var clientInfo = {};
                     user_id: data.to_id,
                     timestamp: moment().format('YYYY-MM-DD H:mm:s')
                 };
-                var child_query2 = connection.query('INSERT INTO tbl_child_message SET ?', childChat2, function(err, result) {
+                var child_query2 = connection.query('INSERT INTO tbl_child_message SET ?', childChat2, function (err, result) {
                     if (err) {
                         throw err;
                     }
@@ -386,103 +459,127 @@ var clientInfo = {};
         });
     });
 
-    /* Implemented later
-    name: typing
-    desciptions: 
-    params: 
-    {
-    data:{
-    oppUser: 1,
-    currentUser: 2
-    }
-    }
-    */
 
-    socket.on('typing', function(data, callback) {
+     /***************************************************************************************************************************************************************/
+    /************************************************************************ /typing ************************************************************************/
+    /**
+     * @api {socket:event} :::typing typing
+     * @apiDescription typing
+     * @apiGroup Chat
+     * @apiName typing
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.currentUser                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.oppUser                                              Object parameter
+          * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+
+    socket.on('typing', function (data, callback) {
         if (data.oppUser in users) {
             users[data.oppUser].emit('typing', {
                 oppUser: data.oppUser,
                 currentUser: data.currentUser
             });
-            //console.log('typing ..... ');
+            ////console.log('typing ..... ');
         }
     });
 
-    /* Implemented later
-    name: stopTyping
-    desciptions: 
-    params: 
-    {
-    data:{
-    oppUser: 1,
-    currentUser: 2
-    }
-    }
-    */
 
-    socket.on('stopTyping', function(data, callback) {
+     /***************************************************************************************************************************************************************/
+    /************************************************************************ /typing ************************************************************************/
+    /**
+     * @api {socket:event} :::typing typing
+     * @apiDescription typing
+     * @apiGroup Chat
+     * @apiName typing
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.currentUser                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.oppUser                                              Object parameter
+          * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+    socket.on('stopTyping', function (data, callback) {
         if (data.oppUser in users) {
             users[data.oppUser].emit('stop typing');
-            //console.log('Stop typing ..... ');
+            ////console.log('Stop typing ..... ');
         }
     });
 
-    // when the user disconnects.. perform this
-    socket.on('disconnects', function(data) {
-        // remove the username from global usernames list
-        //console.log('disconnects');
+
+       /***************************************************************************************************************************************************************/
+    /************************************************************************ /disconnects ************************************************************************/
+    /**
+     * @api {socket:event} :::disconnects disconnects
+     * @apiDescription when the user disconnects.. perform this
+     * @apiGroup Chat
+     * @apiName disconnects
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.userId                                              Object parameter
+     * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+
+    socket.on('disconnects', function (data) {
 
         var ind = users.indexOf(data.userId);
         users.splice(ind, 1);
-
         delete onlineClient['userid' + data.userId];
-
-        //console.log(users);
-        //console.log(onlineClient.indexOf('userid' + data.userId));
-        //console.log(onlineClient['userid' + data.userId]);
-
         socket.leave(socket.room);
+
     });
 
-    // onlineFriends
 
-    socket.on('onlineFriends', function(data) {
-        // remove the username from global usernames list
-        console.log('onlineFriends');
-        console.log(data.userId);
-        var datas=[];
+   /***************************************************************************************************************************************************************/
+    /************************************************************************ /onlineFriends ************************************************************************/
+    /**
+     * @api {socket:event} :::onlineFriends onlineFriends
+     * @apiDescription onlineFriends
+     * @apiGroup Chat
+     * @apiName onlineFriends
+     * ***************************************************************************************************************************************************************
+     
+     * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {object}            data.userId                                              Object parameter
+     * ***************************************************************************************************************************************************************
+     * @apiVersion 0.0.1
+     */
+    // 
+
+    socket.on('onlineFriends', function (data) {
+        var datas = [];
         waterfall([
-            function(callback) {
-                connection.query('SELECT *, CASE WHEN t_c_r.to = ' + data.userId + ' THEN t_c_r.from WHEN t_c_r.from = ' + data.userId + ' THEN t_c_r.to END as friend_id FROM tbl_contact_request as t_c_r where t_c_r.status=2 and (t_c_r.from= ' + data.userId + ' or t_c_r.to= ' + data.userId + ')', function(err, rows, fields) {
+            function (callback) {
+                connection.query('SELECT *, CASE WHEN t_c_r.to = ' + data.userId + ' THEN t_c_r.from WHEN t_c_r.from = ' + data.userId + ' THEN t_c_r.to END as friend_id FROM tbl_contact_request as t_c_r where t_c_r.status=2 and (t_c_r.from= ' + data.userId + ' or t_c_r.to= ' + data.userId + ')', function (err, rows, fields) {
                     if (err) {
-                        //console.log(err)
-                        datas.result=[];
+                        ////console.log(err)
+                        datas.result = [];
                     } else {
-                        datas.result=rows;
+                        datas.result = rows;
                     }
                     callback(null, datas);
-                });                
+                });
             },
-            function(arg1, callback) {
-                datas.onlineFriends =[];
+            function (arg1, callback) {
+                datas.onlineFriends = [];
                 var onlineFriends = [];
-                var rows=datas.result;
-                var j=0;
-                console.log(users);
-                console.log(rows);
-                forEach(rows, function(item, index, arr) {
-                    console.log(users.indexOf(item.friend_id));
-                    console.log(item.friend_id);
-                    if(users.indexOf(item.friend_id) >= 0)
+                var rows = datas.result;
+                var j = 0;
+                forEach(rows, function (item, index, arr) {
+                    if (users.indexOf(item.friend_id) >= 0)
                     {
-                        console.log('rajan');
-                        connection.query('SELECT * FROM tbl_user as t_u where t_u.userid=' + item.friend_id, function(err1, rows1, fields1) {
-                           console.log();
-                            if (err1) 
+
+                        connection.query('SELECT * FROM tbl_user as t_u where t_u.userid=' + item.friend_id, function (err1, rows1, fields1) {
+          
+                            if (err1)
                             {
                                 throw err;
-                            } 
-                            else
+                            } else
                             {
                                 var friendData = {};
                                 friendData = {
@@ -491,18 +588,18 @@ var clientInfo = {};
                                     profilePic: rows1[0].profilePic,
                                     userId: rows1[0].userid,
                                 };
-                                (datas.onlineFriends).push(friendData);  
-                            }      
+                                (datas.onlineFriends).push(friendData);
+                            }
                         });
                     }
 
-                    if(index===(rows.length)-1)
+                    if (index === (rows.length) - 1)
                     {
-                        callback(null, datas); 
+                        callback(null, datas);
                     }
                 });
             }
-        ],function(err, result) {
+        ], function (err, result) {
             socket.emit('onlineFriends', result.onlineFriends);
         });
     });
@@ -511,7 +608,7 @@ var clientInfo = {};
 
 
 //current date and time of any country!
-function currentDateTime(city, offset) 
+function currentDateTime(city, offset)
 {
     // create Date object for current location
     d = new Date();
@@ -528,11 +625,11 @@ function currentDateTime(city, offset)
     // return time as a string
 
     var datetime = currentdate.getDate() + "/" +
-        (currentdate.getMonth() + 1) + "/" +
-        currentdate.getFullYear() + " @ " +
-        currentdate.getHours() + ":" +
-        currentdate.getMinutes() + ":" +
-        currentdate.getSeconds();
+            (currentdate.getMonth() + 1) + "/" +
+            currentdate.getFullYear() + " @ " +
+            currentdate.getHours() + ":" +
+            currentdate.getMinutes() + ":" +
+            currentdate.getSeconds();
     return datetime;
 
 }
