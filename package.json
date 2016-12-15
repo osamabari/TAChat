@@ -1,0 +1,48 @@
+{
+  "name": "tachat",
+  "version": "0.0.1",
+  "description": "Techahead Chat with Socket IO and MySql",
+  "main": "index.js",
+  "dependencies": {
+    "async-waterfall": "^0.1.5",
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "http": "^0.0.0",
+    "moment": "^2.17.1",
+    "mongoose": "^4.6.6",
+    "mysql": "^2.12.0",
+    "request": "^2.78.0",
+    "socket.io": "^1.7.2",
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osamabari/TAChat.git"
+  },
+  "keywords": [
+    "Socket",
+    "IO",
+    "chat",
+    "Chat",
+    "with",
+    "mysql",
+    "RealTime",
+    "chat",
+    "with",
+    "one",
+    "to",
+    "one",
+    "group",
+    "chat"
+  ],
+  "author": "Osama Bari, Rajan Midda",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/osamabari/TAChat/issues"
+  },
+  "homepage": "https://github.com/osamabari/TAChat#readme"
+}

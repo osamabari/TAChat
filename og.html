@@ -1,0 +1,79 @@
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+<script>
+    var socket = io.connect();
+
+    // on connection to server, ask for user's name with an anonymous callback
+    socket.on('connect', function () {
+        // call the server-side function 'adduser' and send one parameter (value of prompt)
+        socket.emit('adduserId', 4);
+        socket.emit('adduser', Math.floor(Math.random() * (100) + 200));
+    });
+
+    // listener, whenever the server emits 'updatechat', this updates the chat body
+    socket.on('updatechat', function (username, data) {
+        console.log(data);
+        $('#conversation').append('<b>' + username + ':</b> ' + data.message + '<br>');
+    });
+
+    socket.on('load old messages', function (username, data) {
+        if (data.length > 0) {
+            for (i = data.length - 1; i >= 0; i--) {
+                $('#conversation').append('<b>' + username + ':</b> ' + data[i].message + '<br>');
+            }
+        }
+    });
+
+    // listener, whenever the server emits 'updaterooms', this updates the room the client is in
+//    socket.on('updaterooms', function (rooms, current_room) {
+//        $('#rooms').empty();
+//        $.each(rooms, function (key, value) {
+//            if (value == current_room) {
+//                $('#rooms').append('<div>' + value + '</div>');
+//            }
+//            else {
+//                $('#rooms').append('<div><a href="#" onclick="switchRoom(\'' + value + '\')">' + value + '</a></div>');
+//            }
+//        });
+//    });
+
+//    function switchRoom(room) {
+//        socket.emit('switchRoom', room);
+//    }
+
+    // on load of page
+    $(function () {
+        // when the client clicks SEND
+        $('#datasend').click(function () {
+            var message = {
+                message: $('#data').val(),
+                from_id: 1,
+                to_id: 2,
+                group_id: 4,
+                message_type: 1
+            };
+            console.log(message);
+            $('#data').val('');
+            // tell server to execute 'sendchat' and send along one parameter
+            socket.emit('sendchat', message);
+        });
+
+        // when the client hits ENTER on their keyboard
+        $('#data').keypress(function (e) {
+            if (e.which == 13) {
+                $(this).blur();
+                $('#datasend').focus().click();
+            }
+        });
+    });
+
+</script>
+<div style="float:left;width:100px;border-right:1px solid black;height:300px;padding:10px;overflow:scroll-y;">
+    <b>GROUP Name</b>
+    <div id="rooms">Sankarshan</div>
+</div>
+<div style="float:left;width:300px;height:250px;overflow:scroll-y;padding:10px;">
+    <div id="conversation"></div>
+    <input id="data" style="width:200px;" />
+    <input type="button" id="datasend" value="send" />
+</div>
