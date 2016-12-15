@@ -47,21 +47,19 @@ connection.connect(function (err) {
 //start chat server
 server.listen(port);
 
+
  /***************************************************************************************************************************************************************/
-    /************************************************************************ /test ************************************************************************/
-    /**
-     * @api {socket:event} /test test
-     * @apiDescription test
-     * @apiGroup test
-     * @apiName test
-     * ***************************************************************************************************************************************************************
-     * ***************************************************************************************************************************************************************
-     * @apiVersion 0.0.1
-     */
-app.get('/', function (req, res) {
-    res.send("Welcome to TA Chat Server");
+     
+    
+app.get('/', function (req, res) {         
+      res.send("Welcome to TA Chat Server");
 });
 
+
+app.get('/docs', function(req, res) {
+         app.use(express.static(__dirname + '/docs'));
+        res.sendFile('./docs/index.html', { root: __dirname });
+    });
 
 /************************************************************************ Start Soket Event ************************************************************************/
 
@@ -75,8 +73,8 @@ io.sockets.on('connection', function (socket) {
      * @apiGroup Chat
      * @apiName chkUser
      * ***************************************************************************************************************************************************************
-     
-     * @apiParam (Expected parameters) {string}            data.userId                                               object parameter
+      * @apiParam (Expected parameters) {object}            data                                              Object parameter
+     * @apiParam (Expected parameters) {Object}            data.userId                                               object parameter
      * ***************************************************************************************************************************************************************
      * @apiVersion 0.0.1
      */
@@ -371,12 +369,12 @@ io.sockets.on('connection', function (socket) {
 
 
  /***************************************************************************************************************************************************************/
-    /************************************************************************ /sendGroupMsg ************************************************************************/
+    /************************************************************************ /sendPrivateMsg ************************************************************************/
     /**
-     * @api {socket:event} :::sendGroupMsg sendGroupMsg
-     * @apiDescription sendGroupMsg
+     * @api {socket:event} :::sendPrivateMsg sendPrivateMsg
+     * @apiDescription sendPrivateMsg
      * @apiGroup Chat
-     * @apiName sendGroupMsg
+     * @apiName sendPrivateMsg
      * ***************************************************************************************************************************************************************
      
      * @apiParam (Expected parameters) {object}            data                                              Object parameter
